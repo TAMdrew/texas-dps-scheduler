@@ -61,6 +61,10 @@ class TexasScheduler {
     private responseId: number | null = null;
     private userAgent: string | null = null;
 
+    /**
+     * Initializes the TexasScheduler instance.
+     * Sets up configuration, the HTTP client, and starts the web server if enabled.
+     */
     public constructor() {
         this.config = parseConfig();
 
@@ -77,6 +81,8 @@ class TexasScheduler {
 
     /**
      * Starts the scheduler process.
+     * Checks for cached tokens, validates eligibility, checks for existing bookings,
+     * and begins the location scanning loop.
      */
     public async start(): Promise<void> {
         log.info(`Texas Scheduler v${packagejson.version} is starting...`);
@@ -119,6 +125,10 @@ class TexasScheduler {
         await this.getLocationDatesAll();
     }
 
+    /**
+     * Starts a simple web server to indicate the bot is alive.
+     * Useful for deployment on platforms that require a bound port (e.g., Render, Heroku).
+     */
     private startWebServer() {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         const http = require('http');
@@ -131,6 +141,10 @@ class TexasScheduler {
         log.info(`Webserver started on port ${port}`);
     }
 
+    /**
+     * Checks if there is an existing booking for the user.
+     * @returns An object indicating existence and the booking details.
+     */
     private async checkExistBooking() {
         const requestBody: ExistBookingPayload = {
             FirstName: this.config.personalInfo.firstName,
@@ -147,6 +161,10 @@ class TexasScheduler {
         return { exist: false, response };
     }
 
+    /**
+     * Cancels an existing booking.
+     * @param ConfirmationNumber - The confirmation number of the booking to cancel.
+     */
     private async cancelBooking(ConfirmationNumber: string) {
         const requestBody: CancelBookingPayload = {
             ConfirmationNumber,
@@ -159,6 +177,10 @@ class TexasScheduler {
         log.info('Canceled booking successfully');
     }
 
+    /**
+     * Retrieves the Response ID required for booking, verifying user eligibility.
+     * @returns True if successful, false otherwise.
+     */
     public async getResponseId() {
         const requestBody: EligibilityPayload = {
             FirstName: this.config.personalInfo.firstName,
@@ -176,6 +198,10 @@ class TexasScheduler {
         return false;
     }
 
+    /**
+     * Fetches all available locations based on the configuration (City or Zip Code).
+     * @returns A list of available locations sorted by distance.
+     */
     public async getAllLocation(): Promise<AvailableLocationResponse[]> {
         const zipcodeList = this.config.location.zipCode;
         const cityNameList = this.config.location.cityName;
@@ -255,6 +281,9 @@ class TexasScheduler {
         return !!matchedDate;
     }
 
+    /**
+     * Requests available locations and handles user selection if configured.
+     */
     public async requestAvailableLocation(): Promise<void> {
         const response = await this.getAllLocation();
         if (response.length === 0) {
@@ -299,6 +328,9 @@ class TexasScheduler {
         return;
     }
 
+    /**
+     * Periodically checks all available locations for appointment dates.
+     */
     private async getLocationDatesAll() {
         log.info('Checking Available Location Dates....');
         if (!this.availableLocation) return;
@@ -325,7 +357,9 @@ class TexasScheduler {
             StartDate: null,
             TypeId: this.config.personalInfo.typeId || 71,
         };
-        const response = (await this.requestApi('/api/AvailableLocationDates', 'POST', requestBody).then(res => res.data)) as AvailableLocationDatesResponse;
+        const response = (await this.requestApi('/api/AvailableLocationDates', 'POST', requestBody).then(
+            res => res.data,
+        )) as AvailableLocationDatesResponse;
         let AvailableDates = response.LocationAvailabilityDates;
 
         if (!locationConfig.sameDay) {
@@ -335,7 +369,11 @@ class TexasScheduler {
                 let preferredDaysCondition = true;
                 if (locationConfig.preferredDays.length > 0) preferredDaysCondition = locationConfig.preferredDays.includes(AvailabilityDate.day());
                 return (
-                    AvailabilityDate.isBetween(startDate.add(locationConfig.daysAround.start, 'day'), startDate.add(locationConfig.daysAround.end, 'day'), 'day') &&
+                    AvailabilityDate.isBetween(
+                        startDate.add(locationConfig.daysAround.start, 'day'),
+                        startDate.add(locationConfig.daysAround.end, 'day'),
+                        'day',
+                    ) &&
                     date.AvailableTimeSlots.length > 0 &&
                     preferredDaysCondition
                 );
@@ -385,6 +423,14 @@ class TexasScheduler {
         return Promise.reject();
     }
 
+    /**
+     * Helper function to make API requests with automatic retry logic.
+     * @param path - The API endpoint path.
+     * @param method - The HTTP method (GET/POST).
+     * @param body - The request body (for POST).
+     * @param retryTime - Current retry count.
+     * @returns The Axios response.
+     */
     private async requestApi(path: string, method: 'GET' | 'POST', body: object, retryTime = 0): Promise<AxiosResponse> {
         const headers: Record<string, string> = {
             'Content-Type': 'application/json;charset=UTF-8',
@@ -518,9 +564,11 @@ class TexasScheduler {
 
             if (this.config.appSettings.pushNotifcation.enabled) {
                 log.info('Sending notification...');
-                await pushNotifcation(`Booked for ${this.config.personalInfo.firstName} ${this.config.personalInfo.lastName}. URL: ${appointmentURL}`).catch(error => {
-                    log.error('Failed to send notification', error);
-                });
+                await pushNotifcation(`Booked for ${this.config.personalInfo.firstName} ${this.config.personalInfo.lastName}. URL: ${appointmentURL}`).catch(
+                    error => {
+                        log.error('Failed to send notification', error);
+                    },
+                );
             }
             process.exit(0);
         } else {

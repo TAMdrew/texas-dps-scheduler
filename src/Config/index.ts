@@ -7,6 +7,10 @@ import 'dotenv/config';
 import dayjs from 'dayjs';
 import path from 'path';
 
+/**
+ * Parses and validates the configuration from `config.yml` or environment variables.
+ * @returns The parsed configuration object.
+ */
 const parseConfig = (): Config => {
     const configPath = path.resolve('config.yml');
     if (!existsSync(configPath)) {
@@ -38,17 +42,32 @@ const parseConfig = (): Config => {
 
 export default parseConfig;
 
+/**
+ * Formats a phone number string into (###) ###-#### format.
+ * @param phoneNumber - The raw phone number string (10 digits).
+ * @returns The formatted phone number or null if input is invalid.
+ */
 function parsePhoneNumber(phoneNumber: string) {
     if (!phoneNumber) return null;
     // Phone format is ########## and we want to convert it to (###) ###-####
     return phoneNumber.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3');
 }
 
+/**
+ * Converts an array of preferred day strings (e.g., "Monday") into their corresponding integer values.
+ * @param preferredDay - Array of day names.
+ * @returns Array of day integers (0-6).
+ */
 function parsePreferredDays(preferredDay: string[]): number[] {
     const convertedPreferredDay = preferredDay.map(day => preferredDayList[day.toLowerCase()]).filter(e => e);
     return convertedPreferredDay;
 }
 
+/**
+ * Loads personal information from environment variables if configured to do so.
+ * @param configData - The current configuration object.
+ * @returns The updated configuration object with personal info from env vars.
+ */
 function parsePersonalInfo(configData: Config) {
     if (!configData.personalInfo.loadFromEnv) return configData;
     log.info('Loading personal info from environment variables.');
